@@ -14,21 +14,50 @@ export default class Game {
   public redScore: number;
   public players: Player[];
   public cards: Card[];
+  private _started: boolean;
 
   constructor(name: string) {
     this.name = name;
+    this.players = [];
     this.blueScore = 0;
     this.redScore = 0;
     this.startingTeam =
       Math.floor(Math.random() * 2) + 1 === 1 ? Teams.RED : Teams.BLUE;
     this.activeTeam = this.startingTeam;
+    this._started = false;
     this.initCards();
   }
 
-  addPlayer(player: Player) {
+  get started() {
+    return this._started;
+  }
+
+  addPlayer(player: Player): [GameError, Player] {
+    const existingPlayer = this.players.find((p) => p.name === player.name);
+
+    if (existingPlayer) {
+      const error: GameError = {
+        type: GameErrorTypes.PLAYER_NAME_TAKEN,
+        message: `Name ${player.name} is already taken!`,
+      };
+
+      return [error, null];
+    }
     this.players.push(player);
 
-    return this;
+    return [null, player];
+  }
+
+  startGame(): GameError {
+    if (this._started) {
+      const error: GameError = {
+        type: GameErrorTypes.SPYMASTER_ALREADY_ASSIGNED,
+        message: "The game has already started!",
+      };
+
+      return error;
+    }
+    this._started = true;
   }
 
   revealCard(card: Card) {
@@ -40,7 +69,7 @@ export default class Game {
       this.endTurn();
     }
 
-    return this;
+    return { ...card, isRevealed: true };
   }
 
   countRemainingCards(team: Teams) {
@@ -54,21 +83,25 @@ export default class Game {
     return this;
   }
 
-  assignSpyMaster(player: Player): GameError | undefined {
+  assignSpyMaster(player: Player): [GameError, Player] {
     const spymaster = this.players.find(
       (p) => p.isSpymaster && p.team === player.team
     );
 
     if (spymaster) {
-      return {
+      const error: GameError = {
         type: GameErrorTypes.SPYMASTER_ALREADY_ASSIGNED,
         message: `${spymaster.name} is already spymaster!`,
       };
+
+      return [error, null];
     }
 
     this.players = this.players.map((p) =>
       p.name === player.name ? { ...p, isSpymaster: true } : p
     );
+
+    return [null, { ...player, isSpymaster: true }];
   }
 
   checkForWin() {
@@ -85,6 +118,10 @@ export default class Game {
     this.startingTeam =
       this.startingTeam === Teams.BLUE ? Teams.RED : Teams.BLUE;
     this.activeTeam = this.startingTeam;
+    this._started = false;
+    this.players = this.players.map((player) =>
+      player.isSpymaster ? { ...player, isSpymaster: false } : player
+    );
     this.initCards();
   }
 
@@ -117,6 +154,7 @@ export default class Game {
       redScore: this.redScore,
       players: this.players,
       cards: this.cards,
+      started: this.started,
       remainingRed: this.countRemainingCards(Teams.RED),
       remainingBlue: this.countRemainingCards(Teams.BLUE),
     };

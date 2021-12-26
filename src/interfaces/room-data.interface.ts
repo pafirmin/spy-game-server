@@ -1,8 +1,8 @@
 import { Card } from "./card.interface";
-import { SocketData } from "./socket-data.interface";
+import { Player } from "./socket-data.interface";
 
 export interface RoomData {
   cards: Card[];
-  players: SocketData[];
+  players: Player[];
   score: { red: number; blue: number };
 }
