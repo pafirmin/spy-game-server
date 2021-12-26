@@ -1,4 +1,4 @@
 export enum Teams {
-  RED = "Red",
+  RED = "red",
   BLUE = "blue",
 }

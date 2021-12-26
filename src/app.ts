@@ -5,10 +5,9 @@ import { Server } from "socket.io";
 import { ClientToServerEvents } from "./interfaces/client-to-server-events.interface";
 import { ServerToClientEvents } from "./interfaces/server-to-client-event.interface";
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
-import { SocketData } from "./interfaces/socket-data.interface";
-import { Teams } from "./enums/teams.enum";
+import { Player } from "./interfaces/socket-data.interface";
 import { Card } from "./interfaces/card.interface";
-import { RoomData } from "./interfaces/room-data.interface";
+import Room from "./classes/room.class";
 
 dotenv.config();
 
@@ -18,17 +17,19 @@ const io = new Server<
   ClientToServerEvents,
   ServerToClientEvents,
   DefaultEventsMap,
-  SocketData
+  Player
 >(server);
 
 const PORT = process.env.PORT;
 
-const rooms = new Map<string, RoomData>();
+const rooms = new Map<string, Room>();
 
 io.on("connection", (socket) => {
   socket.on("create", (data, socket) => {
     if (!rooms.has(data.room)) {
-      rooms.set(data.room, { cards: [], players: [data] });
+      const newRoom = new Room(data.room);
+
+      newRoom.addPlayer(data);
     }
 
     socket.join(data.room);
@@ -38,16 +39,21 @@ io.on("connection", (socket) => {
     const room = rooms.get(data.room);
 
     if (room) {
-      const newRoomData: RoomData = {
-        ...room,
-        players: [...room.players, data],
-      };
-      socket.join(data.room);
-      rooms.set(data.room, newRoomData);
+      room.addPlayer(data);
 
-      io.to(data.room).emit("newUserJoined", newRoomData);
+      io.to(data.room).emit("newUserJoined", room);
     } else {
       socket.emit("roomNotFound");
+    }
+  });
+
+  socket.on("reveal", (data: { card: Card; player: Player }) => {
+    const room = rooms.get(data.player.room);
+
+    if (room) {
+      room.revealCard(data.card);
+
+      io.to(data.player.room).emit("cardRevealed", room);
     }
   });
 });

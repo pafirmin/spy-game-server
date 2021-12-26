@@ -1,8 +1,8 @@
-import { RoomData } from "./room-data.interface";
-import { SocketData } from "./socket-data.interface";
+import Room from "../classes/room.class";
 
 export interface ServerToClientEvents {
-  newUserJoined: (d: RoomData) => void;
+  newUserJoined: (d: Room) => void;
   roomNotFound: () => void;
   roomNameTaken: () => void;
+  cardRevealed: (d: Room) => void;
 }

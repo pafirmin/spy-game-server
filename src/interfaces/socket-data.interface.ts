@@ -1,6 +1,6 @@
 import { Teams } from "../enums/teams.enum";
 
-export interface SocketData {
+export interface Player {
   name: string;
   room: string;
   team: Teams;
