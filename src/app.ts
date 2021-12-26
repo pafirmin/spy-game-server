@@ -7,7 +7,8 @@ import { ServerToClientEvents } from "./interfaces/server-to-client-event.interf
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { Player } from "./interfaces/socket-data.interface";
 import { Card } from "./interfaces/card.interface";
-import Room from "./classes/room.class";
+import Game from "./classes/room.class";
+import { GameErrorTypes } from "./enums/game-error-types.enum";
 
 dotenv.config();
 
@@ -22,38 +23,73 @@ const io = new Server<
 
 const PORT = process.env.PORT;
 
-const rooms = new Map<string, Room>();
+const games = new Map<string, Game>();
 
 io.on("connection", (socket) => {
   socket.on("create", (data, socket) => {
-    if (!rooms.has(data.room)) {
-      const newRoom = new Room(data.room);
-
-      newRoom.addPlayer(data);
+    if (games.has(data.room)) {
+      socket.emit("gameError", {
+        type: GameErrorTypes.GAME_NAME_TAKEN,
+        message: `Name ${data.room} is already in use!`,
+      });
     }
+    const newGame = new Game(data.room);
+    newGame.addPlayer(data);
 
     socket.join(data.room);
+    io.to(data.room).emit("newUserJoined", newGame);
   });
 
   socket.on("join", (data, socket) => {
-    const room = rooms.get(data.room);
+    const game = games.get(data.room);
 
-    if (room) {
-      room.addPlayer(data);
+    if (game) {
+      game.addPlayer(data);
 
-      io.to(data.room).emit("newUserJoined", room);
+      io.to(data.room).emit("newUserJoined", game);
     } else {
-      socket.emit("roomNotFound");
+      socket.emit("gameError", {
+        type: GameErrorTypes.GAME_NOT_FOUND,
+        message: "Game not found",
+      });
     }
   });
 
   socket.on("reveal", (data: { card: Card; player: Player }) => {
-    const room = rooms.get(data.player.room);
+    const game = games.get(data.player.room);
 
-    if (room) {
-      room.revealCard(data.card);
+    if (game) {
+      game.revealCard(data.card);
 
-      io.to(data.player.room).emit("cardRevealed", room);
+      if (game.checkForWin()) {
+        game.revealAll();
+        io.to(data.player.room).emit("gameOver", game);
+      } else {
+        io.to(data.player.room).emit("cardRevealed", game);
+      }
+    }
+  });
+
+  socket.on("assignSpyMaster", (data: Player) => {
+    const game = games.get(data.room);
+
+    if (game) {
+      const err = game.assignSpyMaster(data);
+
+      if (err) {
+        socket.emit("gameError", err);
+      } else {
+        io.to(data.room).emit("spymasterAssigned", game);
+      }
+    }
+  });
+
+  socket.on("reset", (data) => {
+    const game = games.get(data.room);
+
+    if (game) {
+      game.reset();
+      io.to(data.room).emit("newGame", game);
     }
   });
 });
