@@ -36,6 +36,10 @@ export default class Game {
     return this._cards;
   }
 
+  getPlayer(name: string) {
+    return this.players.find((player) => player.name === name);
+  }
+
   addPlayer(player: Player): [GameError, Player] {
     const existingPlayer = this.players.find((p) => p.name === player.name);
 
@@ -47,9 +51,28 @@ export default class Game {
 
       return [error, null];
     }
+
+    if (!player.team) {
+      player = this.autoAssignTeam(player);
+    }
+
     this.players.push(player);
 
     return [null, player];
+  }
+
+  private autoAssignTeam(player: Player): Player {
+    const numRed = this.players.filter((player) => player.team === Teams.RED);
+    const numBlue = this.players.filter((player) => player.team === Teams.BLUE);
+    let team: Teams;
+
+    if (numBlue === numRed) {
+      team = Math.floor(Math.random() * 2) + 1 === 1 ? Teams.RED : Teams.BLUE;
+    } else {
+      team = numRed > numBlue ? Teams.BLUE : Teams.RED;
+    }
+
+    return { ...player, team };
   }
 
   isEmpty() {

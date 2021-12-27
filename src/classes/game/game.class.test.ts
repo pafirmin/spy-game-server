@@ -1,4 +1,5 @@
 import { Teams } from "../../enums/teams.enum";
+import { Player } from "../../interfaces/socket-data.interface";
 import Room from "./game.class";
 
 describe("Room", () => {
@@ -56,9 +57,45 @@ describe("Room", () => {
   });
 
   it("Identifies a win when all teams cards are revealed", () => {
+    room.activeTeam = Teams.RED;
     const blueCards = room.cards.filter((card) => card.team === Teams.BLUE);
     blueCards.forEach((card) => room.revealCard(card));
 
     expect(room.checkForWin()).toBe(true);
+  });
+
+  it("Auto assigns player to smaller team if team not specified", () => {
+    const mockPlayers: Player[] = [
+      {
+        name: "Test1",
+        room: "Test",
+        team: Teams.BLUE,
+        isSpymaster: false,
+      },
+      {
+        name: "Test2",
+        room: "Test",
+        team: Teams.BLUE,
+        isSpymaster: false,
+      },
+      {
+        name: "Test3",
+        room: "Test",
+        team: Teams.RED,
+        isSpymaster: false,
+      },
+      {
+        name: "Test4",
+        room: "Test",
+        team: null,
+        isSpymaster: false,
+      },
+    ];
+
+    for (const player of mockPlayers) {
+      room.addPlayer(player);
+    }
+
+    expect(room.getPlayer("Test4")).toHaveProperty("team", Teams.RED);
   });
 });
