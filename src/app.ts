@@ -7,7 +7,7 @@ import { ServerToClientEvents } from "./interfaces/server-to-client-event.interf
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { Player } from "./interfaces/socket-data.interface";
 import { Card } from "./interfaces/card.interface";
-import Game from "./classes/room.class";
+import Game from "./classes/game/game.class";
 import { GameErrorTypes } from "./enums/game-error-types.enum";
 
 dotenv.config();
@@ -43,6 +43,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("join", (data) => {
+    socket.data.name = data.name;
+    socket.data.room = data.room;
+
     const game = games.get(data.room);
 
     if (game) {
@@ -116,6 +119,14 @@ io.on("connection", (socket) => {
     if (game) {
       game.reset();
       io.to(data.room).emit("newGame", game);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    const game = games.get(socket.data.room);
+
+    if (game) {
+      game.removePlayer(socket.data.name);
     }
   });
 });

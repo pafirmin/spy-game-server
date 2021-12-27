@@ -1,4 +1,4 @@
-import Game from "../classes/room.class";
+import Game from "../classes/game/game.class";
 import { Card } from "./card.interface";
 import { GameError } from "./game-error.interface";
 import { Player } from "./socket-data.interface";

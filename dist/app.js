@@ -7,7 +7,7 @@ const express_1 = __importDefault(require("express"));
 const http_1 = __importDefault(require("http"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const socket_io_1 = require("socket.io");
-const room_class_1 = __importDefault(require("./classes/room.class"));
+const game_class_1 = __importDefault(require("./classes/game/game.class"));
 const game_error_types_enum_1 = require("./enums/game-error-types.enum");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -16,21 +16,19 @@ const io = new socket_io_1.Server(server);
 const PORT = process.env.PORT;
 const games = new Map();
 io.on("connection", (socket) => {
-    socket.on("create", (data, socket) => {
-        if (games.has(data.room)) {
+    socket.on("create", (roomName) => {
+        if (games.has(roomName)) {
             socket.emit("gameError", {
                 type: game_error_types_enum_1.GameErrorTypes.GAME_NAME_TAKEN,
-                message: `Name ${data.room} is already in use!`,
+                message: `Name ${roomName} is already in use!`,
             });
             return;
         }
-        const newGame = new room_class_1.default(data.room);
-        newGame.addPlayer(data);
-        games.set(data.room, newGame);
-        socket.join(data.room);
+        const newGame = new game_class_1.default(roomName);
+        games.set(roomName, newGame);
         socket.emit("gameCreated", newGame);
     });
-    socket.on("join", (data, socket) => {
+    socket.on("join", (data) => {
         const game = games.get(data.room);
         if (game) {
             const [err, player] = game.addPlayer(data);
@@ -40,7 +38,7 @@ io.on("connection", (socket) => {
             }
             socket.join(data.room);
             socket.emit("gameJoined", game);
-            io.to(data.room).emit("newUserJoined", player);
+            socket.to(data.room).emit("newUserJoined", player);
         }
         else {
             socket.emit("gameError", {
@@ -93,7 +91,7 @@ io.on("connection", (socket) => {
         }
     });
 });
-server.listen(3000, () => {
+server.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
 });
 //# sourceMappingURL=app.js.map

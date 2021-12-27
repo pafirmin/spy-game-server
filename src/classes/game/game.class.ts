@@ -1,10 +1,10 @@
-import { Card } from "../interfaces/card.interface";
-import { Player } from "../interfaces/socket-data.interface";
+import { Card } from "../../interfaces/card.interface";
+import { Player } from "../../interfaces/socket-data.interface";
 import { sampleSize, shuffle } from "lodash";
-import words from "../words";
-import { Teams } from "../enums/teams.enum";
-import { GameErrorTypes } from "../enums/game-error-types.enum";
-import { GameError } from "../interfaces/game-error.interface";
+import words from "../../words";
+import { Teams } from "../../enums/teams.enum";
+import { GameErrorTypes } from "../../enums/game-error-types.enum";
+import { GameError } from "../../interfaces/game-error.interface";
 
 export default class Game {
   public readonly name: string;
@@ -13,7 +13,7 @@ export default class Game {
   public blueScore: number;
   public redScore: number;
   public players: Player[];
-  public cards: Card[];
+  private _cards: Card[];
   private _started: boolean;
 
   constructor(name: string) {
@@ -32,6 +32,10 @@ export default class Game {
     return this._started;
   }
 
+  get cards() {
+    return this._cards;
+  }
+
   addPlayer(player: Player): [GameError, Player] {
     const existingPlayer = this.players.find((p) => p.name === player.name);
 
@@ -48,6 +52,10 @@ export default class Game {
     return [null, player];
   }
 
+  removePlayer(name: string) {
+    this.players = this.players.filter((p) => p.name === name);
+  }
+
   startGame(): GameError {
     if (this._started) {
       const error: GameError = {
@@ -61,7 +69,7 @@ export default class Game {
   }
 
   revealCard(card: Card) {
-    this.cards = this.cards.map((c) =>
+    this._cards = this._cards.map((c) =>
       c.word === card.word ? { ...c, isRevealed: true } : c
     );
 
@@ -73,7 +81,7 @@ export default class Game {
   }
 
   countRemainingCards(team: Teams) {
-    return this.cards.filter((card) => !card.isRevealed && card.team === team)
+    return this._cards.filter((card) => !card.isRevealed && card.team === team)
       .length;
   }
 
@@ -106,7 +114,7 @@ export default class Game {
 
   checkForWin() {
     return Boolean(
-      this.cards.find(
+      this._cards.find(
         (card) =>
           (card.isAssassin && card.isRevealed) ||
           (!card.isRevealed && card.team === this.activeTeam)
@@ -126,11 +134,11 @@ export default class Game {
   }
 
   revealAll() {
-    this.cards = this.cards.map((card) => ({ ...card, isRevealed: true }));
+    this._cards = this._cards.map((card) => ({ ...card, isRevealed: true }));
   }
 
   private initCards() {
-    this.cards = shuffle(
+    this._cards = shuffle(
       sampleSize(words, 25).map((word, i) => ({
         word,
         team:

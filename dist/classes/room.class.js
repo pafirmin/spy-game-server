@@ -10,6 +10,7 @@ const game_error_types_enum_1 = require("../enums/game-error-types.enum");
 class Game {
     constructor(name) {
         this.name = name;
+        this.players = [];
         this.blueScore = 0;
         this.redScore = 0;
         this.startingTeam =
@@ -20,6 +21,9 @@ class Game {
     }
     get started() {
         return this._started;
+    }
+    get cards() {
+        return this._cards;
     }
     addPlayer(player) {
         const existingPlayer = this.players.find((p) => p.name === player.name);
@@ -33,6 +37,9 @@ class Game {
         this.players.push(player);
         return [null, player];
     }
+    removePlayer(player) {
+        this.players = this.players.filter((p) => p.name === player.name);
+    }
     startGame() {
         if (this._started) {
             const error = {
@@ -44,14 +51,14 @@ class Game {
         this._started = true;
     }
     revealCard(card) {
-        this.cards = this.cards.map((c) => c.word === card.word ? Object.assign(Object.assign({}, c), { isRevealed: true }) : c);
+        this._cards = this._cards.map((c) => c.word === card.word ? Object.assign(Object.assign({}, c), { isRevealed: true }) : c);
         if (this.activeTeam !== card.team) {
             this.endTurn();
         }
         return Object.assign(Object.assign({}, card), { isRevealed: true });
     }
     countRemainingCards(team) {
-        return this.cards.filter((card) => !card.isRevealed && card.team === team)
+        return this._cards.filter((card) => !card.isRevealed && card.team === team)
             .length;
     }
     endTurn() {
@@ -71,7 +78,7 @@ class Game {
         return [null, Object.assign(Object.assign({}, player), { isSpymaster: true })];
     }
     checkForWin() {
-        return Boolean(this.cards.find((card) => (card.isAssassin && card.isRevealed) ||
+        return Boolean(this._cards.find((card) => (card.isAssassin && card.isRevealed) ||
             (!card.isRevealed && card.team === this.activeTeam)));
     }
     reset() {
@@ -83,10 +90,10 @@ class Game {
         this.initCards();
     }
     revealAll() {
-        this.cards = this.cards.map((card) => (Object.assign(Object.assign({}, card), { isRevealed: true })));
+        this._cards = this._cards.map((card) => (Object.assign(Object.assign({}, card), { isRevealed: true })));
     }
     initCards() {
-        this.cards = (0, lodash_1.shuffle)((0, lodash_1.sampleSize)(words_1.default, 25).map((word, i) => ({
+        this._cards = (0, lodash_1.shuffle)((0, lodash_1.sampleSize)(words_1.default, 25).map((word, i) => ({
             word,
             team: i > 0 && i < 10
                 ? this.activeTeam

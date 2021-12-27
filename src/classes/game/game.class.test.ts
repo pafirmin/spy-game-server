@@ -1,10 +1,12 @@
-import { Teams } from "../enums/teams.enum";
-import Room from "./room.class";
+import { Teams } from "../../enums/teams.enum";
+import Room from "./game.class";
 
 describe("Room", () => {
   let room: Room;
 
-  beforeEach(() => (room = new Room("Test")));
+  beforeEach(() => {
+    room = new Room("Test");
+  });
 
   it("Creates the correct number of cards", () => {
     expect(room.cards.length).toBe(25);
