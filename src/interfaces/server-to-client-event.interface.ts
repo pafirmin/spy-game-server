@@ -11,6 +11,7 @@ export interface ServerToClientEvents {
   gameJoined: (d: Game) => void;
   newGame: (d: Game) => void;
   spymasterAssigned: (p: Player) => void;
-  gameCreated: (d: Game) => void;
+  gameCreated: (d: string) => void;
   gameStarted: () => void;
+  playerLeft: (d: Player) => void;
 }

@@ -9,4 +9,5 @@ export interface ClientToServerEvents {
   reset: (d: Player, s: Socket) => void;
   assignSpyMaster: (d: Player, s: Socket) => void;
   startGame: (d: Player, s: Socket) => void;
+  leaveGame: (d: Player) => void;
 }

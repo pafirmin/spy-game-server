@@ -52,8 +52,12 @@ export default class Game {
     return [null, player];
   }
 
+  isEmpty() {
+    return this.players.length === 0;
+  }
+
   removePlayer(name: string) {
-    this.players = this.players.filter((p) => p.name === name);
+    this.players = this.players.filter((p) => p.name !== name);
   }
 
   startGame(): GameError {

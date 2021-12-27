@@ -1,6 +1,7 @@
 import express from "express";
 import http from "http";
 import dotenv from "dotenv";
+import cors from "cors";
 import { Server } from "socket.io";
 import { ClientToServerEvents } from "./interfaces/client-to-server-events.interface";
 import { ServerToClientEvents } from "./interfaces/server-to-client-event.interface";
@@ -13,6 +14,7 @@ import { GameErrorTypes } from "./enums/game-error-types.enum";
 dotenv.config();
 
 const app = express();
+app.use(cors());
 const server = http.createServer(app);
 const io = new Server<
   ClientToServerEvents,
@@ -28,6 +30,7 @@ const games = new Map<string, Game>();
 io.on("connection", (socket) => {
   socket.on("create", (roomName) => {
     if (games.has(roomName)) {
+      console.log("room already exists");
       socket.emit("gameError", {
         type: GameErrorTypes.GAME_NAME_TAKEN,
         message: `Name ${roomName} is already in use!`,
@@ -38,11 +41,12 @@ io.on("connection", (socket) => {
 
     const newGame = new Game(roomName);
     games.set(roomName, newGame);
-
-    socket.emit("gameCreated", newGame);
+    console.log("emitting gameCreated: ", newGame.name);
+    socket.emit("gameCreated", newGame.name);
   });
 
   socket.on("join", (data) => {
+    console.log("Joining room: ", data);
     socket.data.name = data.name;
     socket.data.room = data.room;
 
@@ -122,11 +126,33 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("disconnect", () => {
+  socket.on("leaveGame", (player: Player) => {
     const game = games.get(socket.data.room);
 
     if (game) {
+      console.log("Player left:", socket.data.name);
       game.removePlayer(socket.data.name);
+      socket.to(player.room).emit("playerLeft", player);
+
+      if (game.isEmpty()) {
+        console.log("Deleting room", socket.data.room);
+        games.delete(socket.data.room);
+      }
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log("disconnecting:", socket.data.name, socket.data.room);
+    const game = games.get(socket.data.room);
+
+    if (game) {
+      console.log("Removing player:", socket.data.name);
+      game.removePlayer(socket.data.name);
+
+      if (game.isEmpty()) {
+        console.log("Deleting room", socket.data.room);
+        games.delete(socket.data.room);
+      }
     }
   });
 });
