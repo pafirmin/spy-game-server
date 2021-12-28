@@ -1,6 +1,6 @@
-import Player from "./player/player.class";
+import Player from "./player.class";
 import { validate as isUuid } from "uuid";
-import { Teams } from "../enums/teams.enum";
+import { Teams } from "../../enums/teams.enum";
 
 describe("Player", () => {
   let player: Player;

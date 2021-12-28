@@ -54,15 +54,15 @@ describe("Room", () => {
 
     room.revealCard(assassin);
 
-    expect(room.checkForWin()).toBe(true);
+    expect(room.gameOver).toBe(true);
   });
 
   it("Identifies a win when all teams cards are revealed", () => {
-    room.activeTeam = Teams.RED;
+    room.setActiveTeam(Teams.RED);
     const blueCards = room.cards.filter((card) => card.team === Teams.BLUE);
     blueCards.forEach((card) => room.revealCard(card));
 
-    expect(room.checkForWin()).toBe(true);
+    expect(room.gameOver).toBe(true);
   });
 
   it("Auto assigns player to smaller team if team not specified", () => {

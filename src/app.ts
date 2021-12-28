@@ -76,7 +76,7 @@ io.on("connection", (socket) => {
     console.log("Joining game");
 
     socket.join(roomName);
-    socket.emit("gameJoined", game, player);
+    socket.emit("gameJoined", game.toJSON(), player);
     socket.to(roomName).emit("newUserJoined", player);
   });
 
@@ -103,9 +103,8 @@ io.on("connection", (socket) => {
     if (game) {
       card = game.revealCard(card);
 
-      if (game.checkForWin()) {
-        game.revealAll();
-        io.to(room).emit("gameOver", game);
+      if (game.gameOver) {
+        io.to(room).emit("gameOver", game.toJSON());
       } else {
         io.to(room).emit("cardRevealed", card);
       }
@@ -132,7 +131,7 @@ io.on("connection", (socket) => {
 
     if (game) {
       game.reset();
-      io.to(socket.data.room).emit("newGame", game);
+      io.to(socket.data.room).emit("newGame", game.toJSON());
     }
   });
 
