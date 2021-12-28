@@ -1,13 +1,13 @@
-import { Socket } from "socket.io";
+import { CreatePlayerDTO } from "../dtos/create-player.dto";
+import { PlayerDTO } from "../dtos/player.dto";
 import { Card } from "./card.interface";
-import { Player } from "./socket-data.interface";
 
 export interface ClientToServerEvents {
   create: (s: string) => void;
-  join: (d: Player, s: Socket) => void;
-  reveal: (d: { card: Card; player: Player }) => void;
-  reset: (d: Player, s: Socket) => void;
-  assignSpyMaster: (d: Player, s: Socket) => void;
-  startGame: (d: Player, s: Socket) => void;
-  leaveGame: (d: Player) => void;
+  join: (p: CreatePlayerDTO, n: string) => void;
+  reveal: (c: Card) => void;
+  reset: () => void;
+  assignSpymaster: (d: PlayerDTO) => void;
+  startGame: () => void;
+  leaveGame: () => void;
 }

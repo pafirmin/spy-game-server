@@ -1,10 +1,11 @@
 import { Card } from "../../interfaces/card.interface";
-import { Player } from "../../interfaces/socket-data.interface";
+import Player from "../player/player.class";
 import { sampleSize, shuffle } from "lodash";
 import words from "../../words";
 import { Teams } from "../../enums/teams.enum";
 import { GameErrorTypes } from "../../enums/game-error-types.enum";
 import { GameError } from "../../interfaces/game-error.interface";
+import { PlayerDTO } from "../../dtos/player.dto";
 
 export default class Game {
   public readonly name: string;
@@ -40,7 +41,7 @@ export default class Game {
     return this.players.find((player) => player.name === name);
   }
 
-  addPlayer(player: Player): [GameError, Player] {
+  addPlayer(player: Player): GameError {
     const existingPlayer = this.players.find((p) => p.name === player.name);
 
     if (existingPlayer) {
@@ -49,7 +50,7 @@ export default class Game {
         message: `Name ${player.name} is already taken!`,
       };
 
-      return [error, null];
+      return error;
     }
 
     if (!player.team) {
@@ -57,13 +58,16 @@ export default class Game {
     }
 
     this.players.push(player);
-
-    return [null, player];
   }
 
   private autoAssignTeam(player: Player): Player {
-    const numRed = this.players.filter((player) => player.team === Teams.RED);
-    const numBlue = this.players.filter((player) => player.team === Teams.BLUE);
+    const numRed = this.players.filter(
+      (player) => player.team === Teams.RED
+    ).length;
+    const numBlue = this.players.filter(
+      (player) => player.team === Teams.BLUE
+    ).length;
+
     let team: Teams;
 
     if (numBlue === numRed) {
@@ -72,15 +76,15 @@ export default class Game {
       team = numRed > numBlue ? Teams.BLUE : Teams.RED;
     }
 
-    return { ...player, team };
+    return player.setTeam(team);
   }
 
   isEmpty() {
     return this.players.length === 0;
   }
 
-  removePlayer(name: string) {
-    this.players = this.players.filter((p) => p.name !== name);
+  removePlayer(id: string) {
+    this.players = this.players.filter((p) => p.id !== id);
   }
 
   startGame(): GameError {
@@ -112,15 +116,15 @@ export default class Game {
       .length;
   }
 
-  endTurn() {
+  private endTurn() {
     this.activeTeam = this.activeTeam === Teams.RED ? Teams.BLUE : Teams.RED;
 
     return this;
   }
 
-  assignSpyMaster(player: Player): [GameError, Player] {
+  assignSpyMaster(playerDto: PlayerDTO): [GameError, PlayerDTO] {
     const spymaster = this.players.find(
-      (p) => p.isSpymaster && p.team === player.team
+      (p) => p.isSpymaster && p.team === playerDto.team
     );
 
     if (spymaster) {
@@ -132,21 +136,21 @@ export default class Game {
       return [error, null];
     }
 
-    this.players = this.players.map((p) =>
-      p.name === player.name ? { ...p, isSpymaster: true } : p
-    );
+    const player = this.players.find((p) => p.id === playerDto.id);
+    player.makeSpymaster();
 
-    return [null, { ...player, isSpymaster: true }];
+    return [null, player];
   }
 
-  checkForWin() {
-    return Boolean(
-      this._cards.find(
-        (card) =>
-          (card.isAssassin && card.isRevealed) ||
-          (!card.isRevealed && card.team === this.activeTeam)
-      )
+  checkForWin(): boolean {
+    const winByAssassin = this._cards.some(
+      (card) => card.isAssassin && card.isRevealed
     );
+    const winByReveal = !this._cards.some(
+      (card) => !card.isRevealed && card.team === this.activeTeam
+    );
+
+    return winByAssassin || winByReveal;
   }
 
   reset() {
@@ -155,7 +159,7 @@ export default class Game {
     this.activeTeam = this.startingTeam;
     this._started = false;
     this.players = this.players.map((player) =>
-      player.isSpymaster ? { ...player, isSpymaster: false } : player
+      player.isSpymaster ? player.relinquishSpymaster() : player
     );
     this.initCards();
   }

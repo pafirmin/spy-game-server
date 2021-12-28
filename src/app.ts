@@ -6,10 +6,13 @@ import { Server } from "socket.io";
 import { ClientToServerEvents } from "./interfaces/client-to-server-events.interface";
 import { ServerToClientEvents } from "./interfaces/server-to-client-event.interface";
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
-import { Player } from "./interfaces/socket-data.interface";
+import { SocketData } from "./interfaces/socket-data.interface";
 import { Card } from "./interfaces/card.interface";
 import Game from "./classes/game/game.class";
 import { GameErrorTypes } from "./enums/game-error-types.enum";
+import Player from "./classes/player/player.class";
+import { CreatePlayerDTO } from "./dtos/create-player.dto";
+import { PlayerDTO } from "./dtos/player.dto";
 
 dotenv.config();
 
@@ -20,7 +23,7 @@ const io = new Server<
   ClientToServerEvents,
   ServerToClientEvents,
   DefaultEventsMap,
-  Player
+  SocketData
 >(server);
 
 const PORT = process.env.PORT;
@@ -30,7 +33,6 @@ const games = new Map<string, Game>();
 io.on("connection", (socket) => {
   socket.on("create", (roomName) => {
     if (games.has(roomName)) {
-      console.log("room already exists");
       socket.emit("gameError", {
         type: GameErrorTypes.GAME_NAME_TAKEN,
         message: `Name ${roomName} is already in use!`,
@@ -41,39 +43,45 @@ io.on("connection", (socket) => {
 
     const newGame = new Game(roomName);
     games.set(roomName, newGame);
-    console.log("emitting gameCreated: ", newGame.name);
     socket.emit("gameCreated", newGame.name);
   });
 
-  socket.on("join", (data) => {
-    console.log("Joining room: ", data);
-    socket.data.name = data.name;
-    socket.data.room = data.room;
+  socket.on("join", (playerDTO: CreatePlayerDTO, roomName: string) => {
+    const game = games.get(roomName);
+    console.log(playerDTO, roomName);
 
-    const game = games.get(data.room);
-
-    if (game) {
-      const [err, player] = game.addPlayer(data);
-
-      if (err) {
-        socket.emit("gameError", err);
-
-        return;
-      }
-
-      socket.join(data.room);
-      socket.emit("gameJoined", game);
-      socket.to(data.room).emit("newUserJoined", player);
-    } else {
+    if (!game) {
+      console.log("Game not found");
       socket.emit("gameError", {
         type: GameErrorTypes.GAME_NOT_FOUND,
         message: "Game not found",
       });
+
+      return;
     }
+
+    const player = new Player(playerDTO);
+    socket.data.name = player.name;
+    socket.data.room = roomName;
+    socket.data.playerId = player.id;
+
+    const err = game.addPlayer(player);
+
+    if (err) {
+      socket.emit("gameError", err);
+
+      return;
+    }
+
+    console.log("Joining game");
+
+    socket.join(roomName);
+    socket.emit("gameJoined", game, player);
+    socket.to(roomName).emit("newUserJoined", player);
   });
 
-  socket.on("startGame", (data: Player) => {
-    const game = games.get(data.room);
+  socket.on("startGame", () => {
+    const game = games.get(socket.data.room);
 
     if (game) {
       const err = game.startGame();
@@ -84,73 +92,75 @@ io.on("connection", (socket) => {
         return;
       }
 
-      io.to(data.room).emit("gameStarted");
+      io.to(socket.data.room).emit("gameStarted");
     }
   });
 
-  socket.on("reveal", (data: { card: Card; player: Player }) => {
-    const game = games.get(data.player.room);
+  socket.on("reveal", (card: Card) => {
+    const room = socket.data.room;
+    const game = games.get(room);
 
     if (game) {
-      const card = game.revealCard(data.card);
+      card = game.revealCard(card);
 
       if (game.checkForWin()) {
         game.revealAll();
-        io.to(data.player.room).emit("gameOver", game);
+        io.to(room).emit("gameOver", game);
       } else {
-        io.to(data.player.room).emit("cardRevealed", card);
+        io.to(room).emit("cardRevealed", card);
       }
     }
   });
 
-  socket.on("assignSpyMaster", (data: Player) => {
-    const game = games.get(data.room);
+  socket.on("assignSpymaster", (player: PlayerDTO) => {
+    const game = games.get(socket.data.room);
 
     if (game) {
-      const [err, spymaster] = game.assignSpyMaster(data);
+      const [err, spymaster] = game.assignSpyMaster(player);
 
       if (err) {
         socket.emit("gameError", err);
       } else {
-        io.to(data.room).emit("spymasterAssigned", spymaster);
+        console.log("Emitting spymaster assigned: ", spymaster);
+        io.to(socket.data.room).emit("spymasterAssigned", spymaster);
       }
     }
   });
 
-  socket.on("reset", (data) => {
-    const game = games.get(data.room);
-
-    if (game) {
-      game.reset();
-      io.to(data.room).emit("newGame", game);
-    }
-  });
-
-  socket.on("leaveGame", (player: Player) => {
+  socket.on("reset", () => {
     const game = games.get(socket.data.room);
 
     if (game) {
-      console.log("Player left:", socket.data.name);
-      game.removePlayer(socket.data.name);
-      socket.to(player.room).emit("playerLeft", player);
+      game.reset();
+      io.to(socket.data.room).emit("newGame", game);
+    }
+  });
+
+  socket.on("leaveGame", () => {
+    const game = games.get(socket.data.room);
+
+    if (game) {
+      console.log("Removing player", socket.data.name);
+      game.removePlayer(socket.data.playerId);
+      socket.to(socket.data.room).emit("playerLeft", socket.data.playerId);
 
       if (game.isEmpty()) {
-        console.log("Deleting room", socket.data.room);
+        console.log("Removing game", socket.data.room);
         games.delete(socket.data.room);
       }
     }
   });
 
   socket.on("disconnect", () => {
-    console.log("disconnecting:", socket.data.name, socket.data.room);
     const game = games.get(socket.data.room);
 
     if (game) {
-      console.log("Removing player:", socket.data.name);
-      game.removePlayer(socket.data.name);
+      console.log("Removing player", socket.data.name);
+      game.removePlayer(socket.data.playerId);
+      socket.to(socket.data.room).emit("playerLeft", socket.data.playerId);
 
       if (game.isEmpty()) {
-        console.log("Deleting room", socket.data.room);
+        console.log("Removing game", socket.data.room);
         games.delete(socket.data.room);
       }
     }

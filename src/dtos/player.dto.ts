@@ -1,9 +1,8 @@
 import { Teams } from "../enums/teams.enum";
 
-export interface SocketData {
-  playerId: string;
+export interface PlayerDTO {
+  id: string;
   name: string;
-  room: string;
   team: Teams;
   isSpymaster: boolean;
 }

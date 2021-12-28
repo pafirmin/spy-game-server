@@ -1,5 +1,6 @@
+import { CreatePlayerDTO } from "../../dtos/create-player.dto";
 import { Teams } from "../../enums/teams.enum";
-import { Player } from "../../interfaces/socket-data.interface";
+import Player from "../player/player.class";
 import Room from "./game.class";
 
 describe("Room", () => {
@@ -65,35 +66,27 @@ describe("Room", () => {
   });
 
   it("Auto assigns player to smaller team if team not specified", () => {
-    const mockPlayers: Player[] = [
+    const mockPlayers: CreatePlayerDTO[] = [
       {
         name: "Test1",
-        room: "Test",
         team: Teams.BLUE,
-        isSpymaster: false,
       },
       {
         name: "Test2",
-        room: "Test",
         team: Teams.BLUE,
-        isSpymaster: false,
       },
       {
         name: "Test3",
-        room: "Test",
         team: Teams.RED,
-        isSpymaster: false,
       },
       {
         name: "Test4",
-        room: "Test",
         team: null,
-        isSpymaster: false,
       },
     ];
 
     for (const player of mockPlayers) {
-      room.addPlayer(player);
+      room.addPlayer(new Player(player));
     }
 
     expect(room.getPlayer("Test4")).toHaveProperty("team", Teams.RED);
