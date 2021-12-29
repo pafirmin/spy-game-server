@@ -5,4 +5,5 @@ export enum GameErrorTypes {
   PLAYER_NAME_TAKEN = "Player name taken",
   NOT_ENOUGH_PLAYERS = "Not enough players",
   NO_SPYMASTER = "No spymaster",
+  SPYMASTER_CANNOT_SWITCH = "Spymaster cannot switch",
 }

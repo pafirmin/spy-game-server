@@ -12,4 +12,5 @@ export interface ClientToServerEvents {
   assignSpymaster: (d: PlayerDTO) => void;
   startGame: () => void;
   leaveGame: () => void;
+  endTurn: () => void;
 }

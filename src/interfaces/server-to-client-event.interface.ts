@@ -14,6 +14,7 @@ export interface ServerToClientEvents {
   newGame: (game: GameDTO) => void;
   spymasterAssigned: (player: PlayerDTO) => void;
   gameStarted: () => void;
-  playerLeft: (id: String) => void;
+  playerLeft: (player: PlayerDTO) => void;
   teamSwitched: (player: PlayerDTO) => void;
+  turnEnded: () => void;
 }

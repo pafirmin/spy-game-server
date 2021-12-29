@@ -77,7 +77,10 @@ export default class Game {
   }
 
   removePlayer(id: string) {
+    const player = this.getPlayer(id);
     this._players = this._players.filter((p) => p.id !== id);
+
+    return player;
   }
 
   setActiveTeam(team: Teams) {
@@ -129,7 +132,7 @@ export default class Game {
       .length;
   }
 
-  assignSpymaster(playerId: string): [GameError, PlayerDTO] {
+  assignSpymaster(playerId: string): [GameError, Player] {
     const player = this.getPlayer(playerId);
 
     const spymaster = this._players.find(
@@ -166,6 +169,12 @@ export default class Game {
     this._cards = this._cards.map((card) => ({ ...card, isRevealed: true }));
   }
 
+  endTurn() {
+    this._activeTeam = this._activeTeam === Teams.RED ? Teams.BLUE : Teams.RED;
+
+    return this;
+  }
+
   private checkForWin(): boolean {
     const winByAssassin = this._cards.some(
       (card) => card.isAssassin && card.isRevealed
@@ -175,12 +184,6 @@ export default class Game {
     );
 
     return winByAssassin || winByReveal;
-  }
-
-  private endTurn() {
-    this._activeTeam = this._activeTeam === Teams.RED ? Teams.BLUE : Teams.RED;
-
-    return this;
   }
 
   private autoAssignTeam(player: Player): Player {
@@ -209,7 +212,7 @@ export default class Game {
         team:
           i > 0 && i < 10
             ? this._activeTeam
-            : i < 17
+            : i > 9 && i < 18
             ? this._activeTeam === Teams.BLUE
               ? Teams.RED
               : Teams.BLUE

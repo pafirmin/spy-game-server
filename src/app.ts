@@ -129,15 +129,32 @@ io.on("connection", (socket) => {
 
   socket.on("switchTeam", () => {
     const game = games.get(socket.data.room);
-    console.log(game);
 
     if (game) {
-      console.log("Switching teams");
       const player = game.getPlayer(socket.data.playerId);
-      player.switchTeam();
-      console.log("player");
 
-      io.to(socket.data.room).emit("teamSwitched", player.toJSON());
+      if (player.isSpymaster) {
+        socket.emit("gameError", {
+          type: GameErrorTypes.SPYMASTER_CANNOT_SWITCH,
+          message: "Spymasters cannot switch teams!",
+        });
+
+        return;
+      }
+
+      player.switchTeam();
+
+      io.to(socket.data.room).emit("teamSwitched", player);
+    }
+  });
+
+  socket.on("endTurn", () => {
+    const game = games.get(socket.data.room);
+
+    if (game) {
+      game.endTurn();
+
+      io.to(socket.data.room).emit("turnEnded");
     }
   });
 
@@ -155,8 +172,8 @@ io.on("connection", (socket) => {
 
     if (game) {
       console.log("Removing player", socket.data.name);
-      game.removePlayer(socket.data.playerId);
-      socket.to(socket.data.room).emit("playerLeft", socket.data.playerId);
+      const player = game.removePlayer(socket.data.playerId);
+      socket.to(socket.data.room).emit("playerLeft", player);
 
       if (game.isEmpty()) {
         console.log("Removing game", socket.data.room);
@@ -170,8 +187,8 @@ io.on("connection", (socket) => {
 
     if (game) {
       console.log("Removing player", socket.data.name);
-      game.removePlayer(socket.data.playerId);
-      socket.to(socket.data.room).emit("playerLeft", socket.data.playerId);
+      const player = game.removePlayer(socket.data.playerId);
+      socket.to(socket.data.room).emit("playerLeft", player);
 
       if (game.isEmpty()) {
         console.log("Removing game", socket.data.room);
