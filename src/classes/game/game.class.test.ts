@@ -85,10 +85,16 @@ describe("Room", () => {
       },
     ];
 
-    for (const player of mockPlayers) {
-      room.addPlayer(new Player(player));
+    let id: string;
+
+    for (const mockPlayer of mockPlayers) {
+      const player = room.addPlayer(new Player(mockPlayer));
+
+      if (player.name === "Test4") {
+        id = player.id;
+      }
     }
 
-    expect(room.getPlayer("Test4")).toHaveProperty("team", Teams.RED);
+    expect(room.getPlayer(id)).toHaveProperty("team", Teams.RED);
   });
 });

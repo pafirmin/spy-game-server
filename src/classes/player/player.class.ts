@@ -49,6 +49,10 @@ export default class Player {
     return this;
   }
 
+  switchTeam() {
+    this._team = this._team === Teams.RED ? Teams.BLUE : Teams.RED;
+  }
+
   toJSON(): PlayerDTO {
     return {
       id: this._id,

@@ -24,8 +24,7 @@ export default class Game {
       Math.floor(Math.random() * 2) + 1 === 1 ? Teams.RED : Teams.BLUE;
     this._activeTeam = this._startingTeam;
     this._players = [];
-    this._scores[Teams.BLUE] = 0;
-    this._scores[Teams.RED] = 0;
+    this._scores = { [Teams.BLUE]: 0, [Teams.RED]: 0 };
     this._started = false;
     this._gameOver = false;
     this.initCards();
@@ -59,27 +58,18 @@ export default class Game {
     return this._gameOver;
   }
 
-  getPlayer(name: string) {
-    return this._players.find((player) => player.name === name);
+  getPlayer(id: string) {
+    return this._players.find((player) => player.id === id);
   }
 
-  addPlayer(player: Player): GameError {
-    const existingPlayer = this._players.find((p) => p.name === player.name);
-
-    if (existingPlayer) {
-      const error: GameError = {
-        type: GameErrorTypes.PLAYER_NAME_TAKEN,
-        message: `Name ${player.name} is already taken!`,
-      };
-
-      return error;
-    }
-
+  addPlayer(player: Player) {
     if (!player.team) {
       player = this.autoAssignTeam(player);
     }
 
     this._players.push(player);
+
+    return player;
   }
 
   isEmpty() {
@@ -95,14 +85,25 @@ export default class Game {
   }
 
   startGame(): GameError {
-    if (this._started) {
+    if (this._players.length < 4) {
       const error: GameError = {
-        type: GameErrorTypes.SPYMASTER_ALREADY_ASSIGNED,
-        message: "The game has already started!",
+        type: GameErrorTypes.NOT_ENOUGH_PLAYERS,
+        message: "Not enough players!",
       };
 
       return error;
     }
+
+    const spymasters = this._players.filter((p) => p.isSpymaster);
+    if (spymasters.length !== 2) {
+      const error: GameError = {
+        type: GameErrorTypes.NO_SPYMASTER,
+        message: "Need two spymasters to start!",
+      };
+
+      return error;
+    }
+
     this._started = true;
   }
 
@@ -128,9 +129,11 @@ export default class Game {
       .length;
   }
 
-  assignSpyMaster(playerDto: PlayerDTO): [GameError, PlayerDTO] {
+  assignSpymaster(playerId: string): [GameError, PlayerDTO] {
+    const player = this.getPlayer(playerId);
+
     const spymaster = this._players.find(
-      (p) => p.isSpymaster && p.team === playerDto.team
+      (p) => p.isSpymaster && p.team === player.team
     );
 
     if (spymaster) {
@@ -142,7 +145,6 @@ export default class Game {
       return [error, null];
     }
 
-    const player = this._players.find((p) => p.id === playerDto.id);
     player.makeSpymaster();
 
     return [null, player];
@@ -225,6 +227,7 @@ export default class Game {
       players: this._players,
       cards: this.cards,
       started: this.started,
+      activeTeam: this._activeTeam,
       remainingRed: this.countRemainingCards(Teams.RED),
       remainingBlue: this.countRemainingCards(Teams.BLUE),
       gameOver: this._gameOver,

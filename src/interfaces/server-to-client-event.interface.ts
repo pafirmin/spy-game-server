@@ -4,14 +4,16 @@ import { Card } from "./card.interface";
 import { GameError } from "./game-error.interface";
 
 export interface ServerToClientEvents {
-  newUserJoined: (d: PlayerDTO) => void;
+  gameFound: (name: string) => void;
+  newUserJoined: (player: PlayerDTO) => void;
   gameError: (err: GameError) => void;
   cardRevealed: (card: Card) => void;
+  updateGame: (game: GameDTO) => void;
   gameOver: (game: GameDTO) => void;
-  gameJoined: (game: GameDTO, p: PlayerDTO) => void;
+  gameJoined: (game: GameDTO, player: PlayerDTO) => void;
   newGame: (game: GameDTO) => void;
-  spymasterAssigned: (p: PlayerDTO) => void;
-  gameCreated: (name: string) => void;
+  spymasterAssigned: (player: PlayerDTO) => void;
   gameStarted: () => void;
   playerLeft: (id: String) => void;
+  teamSwitched: (player: PlayerDTO) => void;
 }

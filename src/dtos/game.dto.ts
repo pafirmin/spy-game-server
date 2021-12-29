@@ -8,6 +8,7 @@ export interface GameDTO {
   players: PlayerDTO[];
   cards: Card[];
   started: boolean;
+  activeTeam: Teams;
   remainingRed: number;
   remainingBlue: number;
   gameOver: boolean;

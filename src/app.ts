@@ -43,7 +43,18 @@ io.on("connection", (socket) => {
 
     const newGame = new Game(roomName);
     games.set(roomName, newGame);
-    socket.emit("gameCreated", newGame.name);
+    socket.emit("gameFound", newGame.name);
+  });
+
+  socket.on("findGame", (name) => {
+    if (games.has(name)) {
+      socket.emit("gameFound", name);
+    } else {
+      socket.emit("gameError", {
+        type: GameErrorTypes.GAME_NOT_FOUND,
+        message: "Game not found",
+      });
+    }
   });
 
   socket.on("join", (playerDTO: CreatePlayerDTO, roomName: string) => {
@@ -60,18 +71,12 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const player = new Player(playerDTO);
+    let player = new Player(playerDTO);
     socket.data.name = player.name;
     socket.data.room = roomName;
     socket.data.playerId = player.id;
 
-    const err = game.addPlayer(player);
-
-    if (err) {
-      socket.emit("gameError", err);
-
-      return;
-    }
+    player = game.addPlayer(player);
 
     console.log("Joining game");
 
@@ -103,19 +108,15 @@ io.on("connection", (socket) => {
     if (game) {
       card = game.revealCard(card);
 
-      if (game.gameOver) {
-        io.to(room).emit("gameOver", game.toJSON());
-      } else {
-        io.to(room).emit("cardRevealed", card);
-      }
+      io.to(room).emit("updateGame", game.toJSON());
     }
   });
 
-  socket.on("assignSpymaster", (player: PlayerDTO) => {
+  socket.on("assignSpymaster", () => {
     const game = games.get(socket.data.room);
 
     if (game) {
-      const [err, spymaster] = game.assignSpyMaster(player);
+      const [err, spymaster] = game.assignSpymaster(socket.data.playerId);
 
       if (err) {
         socket.emit("gameError", err);
@@ -123,6 +124,20 @@ io.on("connection", (socket) => {
         console.log("Emitting spymaster assigned: ", spymaster);
         io.to(socket.data.room).emit("spymasterAssigned", spymaster);
       }
+    }
+  });
+
+  socket.on("switchTeam", () => {
+    const game = games.get(socket.data.room);
+    console.log(game);
+
+    if (game) {
+      console.log("Switching teams");
+      const player = game.getPlayer(socket.data.playerId);
+      player.switchTeam();
+      console.log("player");
+
+      io.to(socket.data.room).emit("teamSwitched", player.toJSON());
     }
   });
 
