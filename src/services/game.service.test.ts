@@ -80,4 +80,14 @@ describe("Game Service", () => {
 
     expect(blueTeam.length).toEqual(redTeam.length);
   });
+
+  it("Detects a win when all cards revealed", () => {
+    const game = gameService.find("Test");
+
+    for (const card of game.cards) {
+      gameService.revealCard("Test", card);
+    }
+
+    expect(game.gameOver).toBe(true);
+  });
 });

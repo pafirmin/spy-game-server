@@ -14,13 +14,7 @@ export default class GameService {
   }
 
   create(name: string): Game {
-    let game = this.games.get(name);
-
-    if (game) {
-      throw new Error("Game name taken");
-    }
-
-    game = new Game(name);
+    const game = new Game(name);
     const cards = this.initCards(game);
 
     this.games.set(name, { ...game, cards });
@@ -64,6 +58,8 @@ export default class GameService {
       player.team = this.autoAssignTeam(game);
     }
 
+    player = new Player(player);
+
     const players = [...game.players, player];
 
     this.games.set(game.name, { ...game, players });
@@ -84,7 +80,7 @@ export default class GameService {
         game.activeTeam === Teams.BLUE ? Teams.RED : Teams.BLUE;
     }
 
-    if (this.checkForWin(game)) {
+    if (this.checkForWin({ ...game, ...updateParams })) {
       updateParams.scores = game.scores;
       updateParams.scores[game.activeTeam]++;
       updateParams.gameOver = true;
@@ -95,11 +91,13 @@ export default class GameService {
 
   resetGame(name: string): Game {
     let game = this.findOrFail(name);
+    const startingTeam =
+      game.startingTeam === Teams.BLUE ? Teams.RED : Teams.BLUE;
 
     const updateParams: UpdateParams<Game> = {
       ...game,
-      startingTeam: game.startingTeam === Teams.BLUE ? Teams.RED : Teams.BLUE,
-      activeTeam: game.startingTeam,
+      startingTeam,
+      activeTeam: startingTeam,
       started: false,
       gameOver: false,
       players: game.players.map((player) =>

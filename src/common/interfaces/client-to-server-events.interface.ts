@@ -1,5 +1,5 @@
+import Player from "../classes/player.class";
 import { CreatePlayerDTO } from "../dtos/create-player.dto";
-import { PlayerDTO } from "../dtos/player.dto";
 import { Card } from "./card.interface";
 
 export interface ClientToServerEvents {
@@ -9,8 +9,9 @@ export interface ClientToServerEvents {
   join: (p: CreatePlayerDTO, n: string) => void;
   reveal: (c: Card) => void;
   reset: () => void;
-  assignSpymaster: (d: PlayerDTO) => void;
+  assignSpymaster: (d: Player) => void;
   startGame: () => void;
   leaveGame: () => void;
   endTurn: () => void;
+  rejoin: () => void;
 }

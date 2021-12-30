@@ -7,10 +7,13 @@ export default class Player {
   name: string;
   team: Teams;
   isSpymaster: boolean;
+  disconnected: boolean;
 
   constructor(dto: CreatePlayerDTO) {
     this.id = uuid();
     this.name = dto.name;
     this.team = dto.team;
+    this.isSpymaster = false;
+    this.disconnected = false;
   }
 }
