@@ -3,16 +3,15 @@ import http from "http";
 import dotenv from "dotenv";
 import cors from "cors";
 import { Server } from "socket.io";
-import { ClientToServerEvents } from "./interfaces/client-to-server-events.interface";
-import { ServerToClientEvents } from "./interfaces/server-to-client-event.interface";
+import { ClientToServerEvents } from "./common/interfaces/client-to-server-events.interface";
+import { ServerToClientEvents } from "./common/interfaces/server-to-client-event.interface";
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
-import { SocketData } from "./interfaces/socket-data.interface";
-import { Card } from "./interfaces/card.interface";
-import Game from "./classes/game/game.class";
-import { GameErrorTypes } from "./enums/game-error-types.enum";
-import Player from "./classes/player/player.class";
-import { CreatePlayerDTO } from "./dtos/create-player.dto";
-import { PlayerDTO } from "./dtos/player.dto";
+import { SocketData } from "./common/interfaces/socket-data.interface";
+import { Card } from "./common/interfaces/card.interface";
+import Player from "./common/classes/player.class";
+import { CreatePlayerDTO } from "./common/dtos/create-player.dto";
+import GameService from "./services/game.service";
+import { Teams } from "./common/enums/teams.enum";
 
 dotenv.config();
 
@@ -28,172 +27,189 @@ const io = new Server<
 
 const PORT = process.env.PORT;
 
-const games = new Map<string, Game>();
+const gameService: GameService = new GameService();
 
 io.on("connection", (socket) => {
   socket.on("create", (roomName) => {
-    if (games.has(roomName)) {
-      socket.emit("gameError", {
-        type: GameErrorTypes.GAME_NAME_TAKEN,
-        message: `Name ${roomName} is already in use!`,
-      });
+    try {
+      const game = gameService.create(roomName);
 
-      return;
+      socket.emit("gameFound", game.name);
+    } catch (err) {
+      socket.emit("gameError", err.message);
     }
-
-    const newGame = new Game(roomName);
-    games.set(roomName, newGame);
-    socket.emit("gameFound", newGame.name);
   });
 
   socket.on("findGame", (name) => {
-    if (games.has(name)) {
-      socket.emit("gameFound", name);
-    } else {
-      socket.emit("gameError", {
-        type: GameErrorTypes.GAME_NOT_FOUND,
-        message: "Game not found",
-      });
+    try {
+      const game = gameService.find(name);
+
+      socket.emit("gameFound", game.name);
+    } catch (err) {
+      socket.emit("gameError", err.message);
     }
   });
 
   socket.on("join", (playerDTO: CreatePlayerDTO, roomName: string) => {
-    const game = games.get(roomName);
-    console.log(playerDTO, roomName);
+    try {
+      const game = gameService.findOrFail(roomName);
 
-    if (!game) {
-      console.log("Game not found");
-      socket.emit("gameError", {
-        type: GameErrorTypes.GAME_NOT_FOUND,
-        message: "Game not found",
-      });
+      let player = new Player(playerDTO);
 
-      return;
+      socket.data.name = player.name;
+      socket.data.room = roomName;
+      socket.data.playerId = player.id;
+
+      player = gameService.addPlayer(game.name, player);
+
+      socket.join(roomName);
+      socket.emit("gameJoined", game, player);
+      socket.to(roomName).emit("newUserJoined", player);
+    } catch (err) {
+      socket.emit("gameError", err.message);
     }
-
-    let player = new Player(playerDTO);
-    socket.data.name = player.name;
-    socket.data.room = roomName;
-    socket.data.playerId = player.id;
-
-    player = game.addPlayer(player);
-
-    console.log("Joining game");
-
-    socket.join(roomName);
-    socket.emit("gameJoined", game.toJSON(), player);
-    socket.to(roomName).emit("newUserJoined", player);
   });
 
   socket.on("startGame", () => {
-    const game = games.get(socket.data.room);
+    try {
+      const game = gameService.findOrFail(socket.data.room);
 
-    if (game) {
-      const err = game.startGame();
-
-      if (err) {
-        socket.emit("gameError", err);
-
-        return;
+      if (game.players.length < 4) {
+        throw new Error("Not enough players!");
       }
 
+      const spymasters = gameService.getSpymasters(game);
+
+      if (!spymasters.red || !spymasters.blue) {
+        throw new Error("Both teams need a spymaster!");
+      }
+
+      gameService.update(socket.data.room, { started: true });
+
       io.to(socket.data.room).emit("gameStarted");
+    } catch (err) {
+      console.log(err);
+      socket.emit("gameError", err.message);
     }
   });
 
   socket.on("reveal", (card: Card) => {
-    const room = socket.data.room;
-    const game = games.get(room);
+    try {
+      const game = gameService.revealCard(socket.data.room, card);
 
-    if (game) {
-      card = game.revealCard(card);
-
-      io.to(room).emit("updateGame", game.toJSON());
+      io.to(socket.data.room).emit("updateGame", game);
+    } catch (err) {
+      socket.emit("gameError", err.message);
     }
   });
 
   socket.on("assignSpymaster", () => {
-    const game = games.get(socket.data.room);
+    try {
+      const game = gameService.findOrFail(socket.data.room);
+      const player = game.players.find((p) => p.id === socket.data.playerId);
+      let spymaster = game.players.find(
+        (p) => p.isSpymaster && p.team === player.team
+      );
 
-    if (game) {
-      const [err, spymaster] = game.assignSpymaster(socket.data.playerId);
-
-      if (err) {
-        socket.emit("gameError", err);
-      } else {
-        console.log("Emitting spymaster assigned: ", spymaster);
-        io.to(socket.data.room).emit("spymasterAssigned", spymaster);
+      if (spymaster) {
+        throw new Error(`${spymaster.name} is already spymaster!`);
       }
+
+      spymaster = { ...player, isSpymaster: true };
+
+      gameService.update(socket.data.room, {
+        players: game.players.map((p) => (p.id === player.id ? spymaster : p)),
+      });
+
+      io.to(socket.data.room).emit("spymasterAssigned", spymaster);
+    } catch (err) {
+      console.log(err);
+      socket.emit("gameError", err.message);
     }
   });
 
   socket.on("switchTeam", () => {
-    const game = games.get(socket.data.room);
-
-    if (game) {
-      const player = game.getPlayer(socket.data.playerId);
+    try {
+      let game = gameService.findOrFail(socket.data.room);
+      let player = game.players.find((p) => p.id === socket.data.playerId);
 
       if (player.isSpymaster) {
-        socket.emit("gameError", {
-          type: GameErrorTypes.SPYMASTER_CANNOT_SWITCH,
-          message: "Spymasters cannot switch teams!",
-        });
-
-        return;
+        throw new Error("Spymasters cannot switch teams!");
       }
 
-      player.switchTeam();
+      player = {
+        ...player,
+        team: player.team === Teams.BLUE ? Teams.RED : Teams.BLUE,
+      };
+
+      gameService.update(socket.data.room, {
+        players: game.players.map((p) => (p.id === player.id ? player : p)),
+      });
 
       io.to(socket.data.room).emit("teamSwitched", player);
+    } catch (err) {
+      socket.emit("gameError", err.messag);
     }
   });
 
   socket.on("endTurn", () => {
-    const game = games.get(socket.data.room);
+    try {
+      const game = gameService.findOrFail(socket.data.room);
 
-    if (game) {
-      game.endTurn();
+      gameService.update(socket.data.room, {
+        activeTeam: game.activeTeam === Teams.BLUE ? Teams.RED : Teams.BLUE,
+      });
 
       io.to(socket.data.room).emit("turnEnded");
+    } catch (err) {
+      socket.emit("gameError", err.message);
     }
   });
 
   socket.on("reset", () => {
-    const game = games.get(socket.data.room);
+    try {
+      const game = gameService.resetGame(socket.data.room);
 
-    if (game) {
-      game.reset();
-      io.to(socket.data.room).emit("newGame", game.toJSON());
+      io.to(socket.data.room).emit("newGame", game);
+    } catch (err) {
+      socket.emit("gameError", err.message);
     }
   });
 
   socket.on("leaveGame", () => {
-    const game = games.get(socket.data.room);
+    try {
+      let game = gameService.findOrFail(socket.data.room);
+      let player = game.players.find((p) => p.id === socket.data.playerId);
 
-    if (game) {
-      console.log("Removing player", socket.data.name);
-      const player = game.removePlayer(socket.data.playerId);
+      game = gameService.update(socket.data.room, {
+        players: game.players.filter((p) => p.id !== socket.data.playerId),
+      });
+
       socket.to(socket.data.room).emit("playerLeft", player);
 
-      if (game.isEmpty()) {
-        console.log("Removing game", socket.data.room);
-        games.delete(socket.data.room);
+      if (game.players.length === 0) {
+        gameService.remove(game.name);
       }
+    } catch (err) {
+      socket.emit("gameError", err.message);
     }
   });
 
   socket.on("disconnect", () => {
-    const game = games.get(socket.data.room);
+    let game = gameService.find(socket.data.room);
 
-    if (game) {
-      console.log("Removing player", socket.data.name);
-      const player = game.removePlayer(socket.data.playerId);
-      socket.to(socket.data.room).emit("playerLeft", player);
+    if (!game) return;
 
-      if (game.isEmpty()) {
-        console.log("Removing game", socket.data.room);
-        games.delete(socket.data.room);
-      }
+    let player = game.players.find((p) => p.id === socket.data.playerId);
+
+    game = gameService.update(socket.data.room, {
+      players: game.players.filter((p) => p.id !== socket.data.playerId),
+    });
+
+    socket.to(socket.data.room).emit("playerLeft", player);
+
+    if (game.players.length === 0) {
+      gameService.remove(game.name);
     }
   });
 });

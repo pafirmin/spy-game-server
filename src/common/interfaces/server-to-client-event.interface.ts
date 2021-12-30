@@ -1,4 +1,5 @@
-import { GameDTO } from "../dtos/game.dto";
+import Game from "../classes/game/game.class";
+import Player from "../classes/player/player.class";
 import { PlayerDTO } from "../dtos/player.dto";
 import { Card } from "./card.interface";
 import { GameError } from "./game-error.interface";
@@ -8,13 +9,13 @@ export interface ServerToClientEvents {
   newUserJoined: (player: PlayerDTO) => void;
   gameError: (err: GameError) => void;
   cardRevealed: (card: Card) => void;
-  updateGame: (game: GameDTO) => void;
-  gameOver: (game: GameDTO) => void;
-  gameJoined: (game: GameDTO, player: PlayerDTO) => void;
-  newGame: (game: GameDTO) => void;
-  spymasterAssigned: (player: PlayerDTO) => void;
+  updateGame: (game: Game) => void;
+  gameOver: (game: Game) => void;
+  gameJoined: (game: Game, player: Player) => void;
+  newGame: (game: Game) => void;
+  spymasterAssigned: (player: Player) => void;
   gameStarted: () => void;
-  playerLeft: (player: PlayerDTO) => void;
-  teamSwitched: (player: PlayerDTO) => void;
+  playerLeft: (player: Player) => void;
+  teamSwitched: (player: Player) => void;
   turnEnded: () => void;
 }
