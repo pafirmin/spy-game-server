@@ -10,7 +10,6 @@ import { SocketData } from "./common/interfaces/socket-data.interface";
 import { Card } from "./common/interfaces/card.interface";
 import Player from "./common/classes/player.class";
 import GameService from "./services/game.service";
-import { Teams } from "./common/enums/teams.enum";
 
 dotenv.config();
 
@@ -35,26 +34,6 @@ const PORT = process.env.PORT;
 const gameService: GameService = new GameService();
 
 io.on("connection", (socket) => {
-  socket.on("create", (roomName) => {
-    try {
-      const game = gameService.create(roomName);
-
-      socket.emit("gameFound", game.name);
-    } catch (err) {
-      socket.emit("gameError", err.message);
-    }
-  });
-
-  socket.on("findGame", (name) => {
-    try {
-      const game = gameService.findOrFail(name);
-
-      socket.emit("gameFound", game.name);
-    } catch (err) {
-      socket.emit("gameError", err.message);
-    }
-  });
-
   socket.on("join", (player: Player, roomName: string) => {
     try {
       let game = gameService.findOrFail(roomName);
@@ -106,19 +85,7 @@ io.on("connection", (socket) => {
 
   socket.on("startGame", () => {
     try {
-      const game = gameService.findOrFail(socket.data.room);
-
-      if (game.players.length < 4) {
-        throw new Error("Not enough players!");
-      }
-
-      const spymasters = gameService.getSpymasters(game);
-
-      if (!spymasters.red || !spymasters.blue) {
-        throw new Error("Both teams need a spymaster!");
-      }
-
-      gameService.update(socket.data.room, { started: true });
+      gameService.startGame(socket.data.room);
 
       io.to(socket.data.room).emit("gameStarted");
     } catch (err) {
@@ -139,23 +106,12 @@ io.on("connection", (socket) => {
 
   socket.on("assignSpymaster", () => {
     try {
-      const game = gameService.findOrFail(socket.data.room);
-      const player = game.players.find((p) => p.id === socket.data.playerId);
-      let spymaster = game.players.find(
-        (p) => p.isSpymaster && p.team === player.team
+      const player = gameService.assignSpymaster(
+        socket.data.room,
+        socket.data.playerId
       );
 
-      if (spymaster) {
-        throw new Error(`${spymaster.name} is already spymaster!`);
-      }
-
-      spymaster = { ...player, isSpymaster: true };
-
-      gameService.update(socket.data.room, {
-        players: game.players.map((p) => (p.id === player.id ? spymaster : p)),
-      });
-
-      io.to(socket.data.room).emit("spymasterAssigned", spymaster);
+      io.to(socket.data.room).emit("spymasterAssigned", player);
     } catch (err) {
       console.log(err);
       socket.emit("gameError", err.message);
@@ -164,21 +120,10 @@ io.on("connection", (socket) => {
 
   socket.on("switchTeam", () => {
     try {
-      let game = gameService.findOrFail(socket.data.room);
-      let player = game.players.find((p) => p.id === socket.data.playerId);
-
-      if (player.isSpymaster) {
-        throw new Error("Spymasters cannot switch teams!");
-      }
-
-      player = {
-        ...player,
-        team: player.team === Teams.BLUE ? Teams.RED : Teams.BLUE,
-      };
-
-      gameService.update(socket.data.room, {
-        players: game.players.map((p) => (p.id === player.id ? player : p)),
-      });
+      const player = gameService.switchTeam(
+        socket.data.room,
+        socket.data.playerId
+      );
 
       io.to(socket.data.room).emit("teamSwitched", player);
     } catch (err) {
@@ -188,11 +133,7 @@ io.on("connection", (socket) => {
 
   socket.on("endTurn", () => {
     try {
-      const game = gameService.findOrFail(socket.data.room);
-
-      gameService.update(socket.data.room, {
-        activeTeam: game.activeTeam === Teams.BLUE ? Teams.RED : Teams.BLUE,
-      });
+      gameService.endTurn(socket.data.room);
 
       io.to(socket.data.room).emit("turnEnded");
     } catch (err) {
@@ -212,18 +153,12 @@ io.on("connection", (socket) => {
 
   socket.on("leaveGame", () => {
     try {
-      let game = gameService.findOrFail(socket.data.room);
-      let player = game.players.find((p) => p.id === socket.data.playerId);
-
-      game = gameService.update(socket.data.room, {
-        players: game.players.filter((p) => p.id !== socket.data.playerId),
-      });
+      const player = gameService.removePlayer(
+        socket.data.room,
+        socket.data.playerId
+      );
 
       socket.to(socket.data.room).emit("playerLeft", player);
-
-      if (game.players.length === 0) {
-        gameService.remove(game.name);
-      }
     } catch (err) {
       socket.emit("gameError", err.message);
     }
@@ -246,18 +181,16 @@ io.on("connection", (socket) => {
       socket.to(socket.data.room).emit("playerDisconnected", player);
 
       setTimeout(() => {
-        game = gameService.findOrFail(socket.data.room);
-        const disconnected = game.players.find(
-          (p) => p.id === socket.data.playerId && p.disconnected
-        );
+        game = gameService.find(socket.data.room);
 
-        if (disconnected) {
-          gameService.update(socket.data.room, {
-            players: game.players.filter((p) => p.id !== socket.data.playerId),
-          });
+        if (!game) return;
+
+        const player = game.players.find((p) => p.id === socket.data.playerId);
+
+        if (player.disconnected) {
+          gameService.removePlayer(game.name, socket.data.playerId);
+          socket.to(socket.data.room).emit("playerLeft", player);
         }
-
-        socket.to(socket.data.room).emit("playerLeft", player);
       }, 30000);
 
       if (

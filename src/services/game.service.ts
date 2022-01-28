@@ -25,7 +25,7 @@ export default class GameService {
   find(name: string): Game {
     const game = this.games.get(name);
 
-    return game ? { ...game } : undefined;
+    return game;
   }
 
   findOrFail(name: string): Game {
@@ -35,7 +35,7 @@ export default class GameService {
       throw new Error("Game not found");
     }
 
-    return { ...game };
+    return game;
   }
 
   update(name: string, params: UpdateParams<Game>): Game {
@@ -67,6 +67,37 @@ export default class GameService {
     return player;
   }
 
+  switchTeam(name: string, playerId: string) {
+    const game = this.findOrFail(name);
+    const player = game.players.find((p) => playerId === p.id);
+
+    player.team = player.team === Teams.BLUE ? Teams.RED : Teams.BLUE;
+
+    return player;
+  }
+
+  endTurn(name: string) {
+    const game = this.findOrFail(name);
+
+    game.activeTeam = game.activeTeam === Teams.BLUE ? Teams.RED : Teams.BLUE;
+  }
+
+  assignSpymaster(name: string, playerId: string) {
+    const game = this.findOrFail(name);
+    const player = game.players.find((p) => p.id === playerId);
+    const spymaster = game.players.find(
+      (p) => p.isSpymaster && p.team === player.team
+    );
+
+    if (spymaster) {
+      throw new Error(`${spymaster.name} is already spymaster!`);
+    }
+
+    player.isSpymaster = true;
+
+    return player;
+  }
+
   revealCard(name: string, card: Card): Game {
     const game = this.findOrFail(name);
     const updateParams: UpdateParams<Game> = {};
@@ -89,6 +120,24 @@ export default class GameService {
     return this.update(game.name, updateParams);
   }
 
+  startGame(name: string) {
+    const game = this.findOrFail(name);
+
+    if (game.players.length < 4) {
+      throw new Error("Not enough players!");
+    }
+
+    const spymasters = this.getSpymasters(game);
+
+    if (!spymasters.red || !spymasters.blue) {
+      throw new Error("Both teams need a spymaster!");
+    }
+
+    game.started = true;
+
+    return game;
+  }
+
   resetGame(name: string): Game {
     let game = this.findOrFail(name);
     const startingTeam =
@@ -107,6 +156,18 @@ export default class GameService {
     };
 
     return this.update(game.name, updateParams);
+  }
+
+  removePlayer(name: string, playerId: string) {
+    const game = this.findOrFail(name);
+    const player = game.players.find((p) => p.id === playerId);
+    game.players = game.players.filter((p) => p.id !== playerId);
+
+    if (game.players.length === 0) {
+      this.remove(game.name);
+    }
+
+    return player;
   }
 
   getSpymasters(game: Game) {

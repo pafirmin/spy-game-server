@@ -3,14 +3,14 @@ import { Card } from "../interfaces/card.interface";
 import Player from "./player.class";
 
 export default class Game {
-  public readonly name: string;
-  public readonly startingTeam: Teams;
-  public readonly activeTeam: Teams;
-  public readonly scores: { [Teams.RED]: number; [Teams.BLUE]: number };
-  public readonly players: Player[];
-  public readonly cards: Card[];
-  public readonly started: boolean;
-  public readonly gameOver: boolean;
+  name: string;
+  startingTeam: Teams;
+  activeTeam: Teams;
+  scores: { [Teams.RED]: number; [Teams.BLUE]: number };
+  players: Player[];
+  cards: Card[];
+  started: boolean;
+  gameOver: boolean;
 
   constructor(name: string) {
     this.name = name;
