@@ -5,8 +5,10 @@
   "main": "dist/index.js",
   "scripts": {
     "test": "jest --verbose",
+    "postinstall": "tsc",
     "dev": "nodemon",
-    "start": "ts-node src/app.ts"
+    "start": "ts-node src/app.ts",
+    "prof": "node dist/app.js"
   },
   "keywords": [],
   "author": "",
