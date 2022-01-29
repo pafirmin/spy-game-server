@@ -1,5 +1,5 @@
 import { Card } from "./card.interface";
-import { Player } from "./socket-data.interface";
+import Player from "../classes/player.class";
 
 export interface RoomData {
   cards: Card[];
