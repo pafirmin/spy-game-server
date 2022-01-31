@@ -152,7 +152,7 @@ export default class GameService {
       players: game.players.map((player) =>
         player.isSpymaster ? { ...player, isSpymaster: false } : player
       ),
-      cards: this.initCards(game),
+      cards: this.initCards({ ...game, activeTeam: startingTeam }),
     };
 
     return this.update(game.name, updateParams);

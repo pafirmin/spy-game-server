@@ -4,6 +4,8 @@ import { Teams } from "../common/enums/teams.enum";
 import { UpdateParams } from "../common/types";
 import GameService from "./game.service";
 
+jest.mock("uuid", () => ({ v4: () => "123" }));
+
 describe("Game Service", () => {
   let gameService: GameService;
 
