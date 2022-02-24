@@ -10,11 +10,11 @@ export interface ServerToClientEvents {
   cardRevealed: (card: Card) => void;
   updateGame: (game: Game) => void;
   gameOver: (game: Game) => void;
-  gameJoined: (game: Game, player: Player) => void;
+  gameJoined: (game: Game, player:Player) => void;
   newGame: (game: Game) => void;
   spymasterAssigned: (player: Player) => void;
   gameStarted: () => void;
-  playerLeft: (player: Player) => void;
+  playerLeft: (p: Player) => void;
   teamSwitched: (player: Player) => void;
   turnEnded: () => void;
   playerDisconnected: (player: Player) => void;

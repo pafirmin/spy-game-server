@@ -19,56 +19,37 @@ export default class GameService {
 
     this.games.set(name, { ...game, cards });
 
-    return { ...game };
+    return { ...game, cards };
   }
 
   find(name: string): Game {
     const game = this.games.get(name);
 
-    return game;
+    return game ? { ...game } : undefined;
   }
 
-  findOrFail(name: string): Game {
-    const game = this.find(name);
+  findPlayer(game: Game, id: string): Player | undefined {
+    return game.players.find((player) => player.id === id);
+  }
 
-    if (!game) {
-      throw new Error("Game not found");
+  join(name: string, player: Player): [Game, Player] {
+    const game = this.findOrFail(name);
+    const joined = this.findPlayer(game, player.id);
+
+    if (joined) {
+      return this.reconnectPlayer(game, joined);
     }
 
-    return game;
-  }
-
-  update(name: string, params: UpdateParams<Game>): Game {
-    const game = this.findOrFail(name);
-    const updated = Object.assign(game, params);
-
-    this.games.set(game.name, updated);
-
-    return updated;
+    return this.addNewPlayer(game, player);
   }
 
   remove(name: string): boolean {
     return this.games.delete(name);
   }
 
-  addPlayer(name: string, player: Player): Player {
-    const game = this.findOrFail(name);
-
-    if (!player.team) {
-      player.team = this.autoAssignTeam(game);
-    }
-
-    player = new Player(player);
-
-    const players = [...game.players, player];
-
-    this.games.set(game.name, { ...game, players });
-
-    return player;
-  }
-
   switchTeam(name: string, playerId: string) {
     const game = this.findOrFail(name);
+
     const player = game.players.find((p) => playerId === p.id);
 
     player.team = player.team === Teams.BLUE ? Teams.RED : Teams.BLUE;
@@ -79,7 +60,9 @@ export default class GameService {
   endTurn(name: string) {
     const game = this.findOrFail(name);
 
-    game.activeTeam = game.activeTeam === Teams.BLUE ? Teams.RED : Teams.BLUE;
+    const activeTeam = game.activeTeam === Teams.BLUE ? Teams.RED : Teams.BLUE;
+
+    return this.update(game, { activeTeam });
   }
 
   assignSpymaster(name: string, playerId: string) {
@@ -117,7 +100,7 @@ export default class GameService {
       updateParams.gameOver = true;
     }
 
-    return this.update(game.name, updateParams);
+    return this.update(game, updateParams);
   }
 
   startGame(name: string) {
@@ -155,19 +138,31 @@ export default class GameService {
       cards: this.initCards({ ...game, activeTeam: startingTeam }),
     };
 
-    return this.update(game.name, updateParams);
+    return this.update(game, updateParams);
   }
 
   removePlayer(name: string, playerId: string) {
-    const game = this.findOrFail(name);
-    const player = game.players.find((p) => p.id === playerId);
-    game.players = game.players.filter((p) => p.id !== playerId);
+    let game = this.findOrFail(name);
+    const player = this.findPlayer(game, playerId);
+    const players = game.players.filter((p) => p.id !== playerId);
+    game = this.update(game, { players });
 
     if (game.players.length === 0) {
       this.remove(game.name);
     }
 
     return player;
+  }
+
+  disconnectPlayer(name: string, playerId: string) {
+    const game = this.findOrFail(name);
+    const player = this.findPlayer(game, playerId);
+    const updatedPlayers = this.updatePlayerList(game.players, {
+      ...player,
+      disconnected: true,
+    });
+
+    return this.update(game, { players: updatedPlayers });
   }
 
   getSpymasters(game: Game) {
@@ -182,28 +177,65 @@ export default class GameService {
     );
   }
 
-  private autoAssignTeam(game: Game): Teams {
-    const counts = game.players.reduce(
-      (count, player) => {
-        if (player.team === Teams.BLUE) {
-          count.blue++;
-        } else {
-          count.red++;
-        }
-        return count;
-      },
-      { blue: 0, red: 0 }
-    );
+  private reconnectPlayer(game: Game, player: Player): [Game, Player] {
+    const updatedPlayer = { ...player, disconnected: false };
+    const updatedGame = this.update(game, {
+      players: this.updatePlayerList(game.players, updatedPlayer),
+    });
 
-    let team: Teams;
+    return [updatedGame, updatedPlayer];
+  }
 
-    if (counts.red === counts.blue) {
-      team = Math.floor(Math.random() * 2) + 1 === 1 ? Teams.RED : Teams.BLUE;
-    } else {
-      team = counts.red > counts.blue ? Teams.BLUE : Teams.RED;
+  private findOrFail(name: string): Game {
+    const game = this.find(name);
+
+    if (!game) {
+      throw new Error("Game not found");
     }
 
-    return team;
+    return { ...game };
+  }
+
+  private update(game: Game, params: UpdateParams<Game>): Game {
+    const updated = { ...game, ...params };
+
+    this.games.set(game.name, updated);
+
+    return updated;
+  }
+
+  private addNewPlayer(game: Game, player: Player): [Game, Player] {
+    let team = player.team;
+
+    if (!team) {
+      team = this.autoAssignTeam(game);
+    }
+
+    const newPlayer = new Player({ ...player, team });
+
+    const players = [...game.players, newPlayer];
+
+    game = this.update(game, { players });
+
+    return [game, newPlayer];
+  }
+
+  private autoAssignTeam(game: Game): Teams {
+    const numRed = game.players.filter((p) => p.team === Teams.RED).length;
+
+    if (numRed > game.players.length / 2) {
+      return Teams.BLUE;
+    }
+
+    if (numRed === game.players.length / 2) {
+      return Math.random() < 0.5 ? Teams.RED : Teams.BLUE;
+    }
+
+    return Teams.RED;
+  }
+
+  private updatePlayerList(playerList: Player[], player: Player) {
+    return playerList.map((p) => (p.id === player.id ? player : p));
   }
 
   private initCards(game: Game): Card[] {

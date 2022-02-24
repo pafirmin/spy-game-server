@@ -1,7 +1,5 @@
-import Game from "../common/classes/game.class";
 import Player from "../common/classes/player.class";
 import { Teams } from "../common/enums/teams.enum";
-import { UpdateParams } from "../common/types";
 import GameService from "./game.service";
 
 jest.mock("uuid", () => ({ v4: () => "123" }));
@@ -47,14 +45,6 @@ describe("Game Service", () => {
     expect(assassins[0].team).toBeNull();
   });
 
-  it("update method returns updated game", () => {
-    let game = gameService.find("Test");
-    const updateParams: UpdateParams<Game> = { name: "Changed" };
-
-    game = gameService.update("Test", updateParams);
-    expect(game.name).toBe("Changed");
-  });
-
   it("Deletes a game by name", () => {
     gameService.remove("Test");
     const game = gameService.find("Test");
@@ -62,18 +52,17 @@ describe("Game Service", () => {
     expect(game).toBeUndefined();
   });
 
-  it("Adds a player to the game", () => {
-    const player = new Player({ name: "Test", team: Teams.BLUE });
-    gameService.addPlayer("Test", player);
+  it("Initialises a player on join", () => {
+    const playerDto = { name: "Test", team: Teams.BLUE };
+    const [game, player] = gameService.join("Test", new Player(playerDto));
 
-    const game = gameService.find("Test");
     expect(game.players).toContainEqual(player);
   });
 
   it("Keeps teams balanced when team not specified", () => {
     for (let i = 0; i < 100; i++) {
       const player = new Player({ name: `Test${i}` });
-      gameService.addPlayer("Test", player);
+      gameService.join("Test", player);
     }
 
     const game = gameService.find("Test");
@@ -83,13 +72,23 @@ describe("Game Service", () => {
     expect(blueTeam.length).toEqual(redTeam.length);
   });
 
-  it("Detects a win when all cards revealed", () => {
-    const game = gameService.find("Test");
+  it("Detects a win when all cards of one team revealed", () => {
+    let game = gameService.find("Test");
+    const cards = game.cards.filter((c) => c.team === Teams.BLUE);
 
-    for (const card of game.cards) {
-      gameService.revealCard("Test", card);
+    for (const card of cards) {
+      game = gameService.revealCard("Test", card);
     }
 
     expect(game.gameOver).toBe(true);
   });
+
+  it("disconnectPlayer sets a players to 'disconnected'", () => {
+    let [game, player] = gameService.join("Test", new Player({name: "Test"}))
+
+    game = gameService.disconnectPlayer("Test", player.id)
+    player = gameService.findPlayer(game, player.id)
+
+    expect(player.disconnected).toBe(true)
+  })
 });
