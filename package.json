@@ -8,7 +8,7 @@
     "postinstall": "tsc",
     "dev": "nodemon",
     "start": "ts-node src/app.ts",
-    "prof": "node dist/app.js"
+    "prod": "node dist/app.js"
   },
   "keywords": [],
   "author": "",
