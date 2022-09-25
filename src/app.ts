@@ -35,6 +35,14 @@ const socketServer = new SocketServer(io, gameService)
 
 socketServer.listen()
 
+app.get("/", (_req: Request, res: Response) => {
+  try {
+    return res.status(200).json({message: `Status: OK`});
+  } catch (err) {
+    console.log(err);
+  }
+});
+
 app.post("/games", (req: Request, res: Response) => {
   try {
     let game = gameService.find(req.body.name);
