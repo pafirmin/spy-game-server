@@ -116,9 +116,7 @@ export default class GameService {
       throw new Error("Both teams need a spymaster!");
     }
 
-    game.started = true;
-
-    return game;
+    return this.update(game, { started: true });
   }
 
   resetGame(name: string): Game {

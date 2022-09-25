@@ -10,7 +10,7 @@ export default class Player {
   disconnected: boolean;
 
   constructor(dto: CreatePlayerDTO) {
-    this.id = uuid();
+    this.id = dto.id || uuid();
     this.name = dto.name;
     this.team = dto.team;
     this.isSpymaster = false;

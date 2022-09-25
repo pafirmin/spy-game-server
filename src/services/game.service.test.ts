@@ -61,7 +61,7 @@ describe("Game Service", () => {
 
   it("Keeps teams balanced when team not specified", () => {
     for (let i = 0; i < 100; i++) {
-      const player = new Player({ name: `Test${i}` });
+      const player = new Player({ name: `Test${i}`, id: i.toString() });
       gameService.join("Test", player);
     }
 
