@@ -43,10 +43,10 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         port: ${{ secrets.SSH_PORT }}
         script: |
-          cd ~/node-github-demo
+          cd ~/home/apps/spy-game-server
           git pull origin master
           npm install --production
-          npx tsc
+          tsc
           pm2 restart spy-game-server
         
         
